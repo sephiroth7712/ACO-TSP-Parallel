@@ -8,6 +8,12 @@ C++ implementations of the **Max-Min Ant System (MMAS)**, an Ant Colony Optimiza
 
 This was a research project for CMSC 603 and CMSC 502 at Virginia Commonwealth University (Fall 2023), benchmarked on the university's Huff and Maple clusters with the TSPLIB instances eil51 and a280.
 
+<p align="center">
+  <img src="output_images/mmas_eil51.gif" width="800" alt="Animated replay of a Max-Min Ant System run on the 51-city TSPLIB instance eil51. A dense web of pheromone thins into a few trails. One iteration plays in slow motion: 256 ants walk their tours, pheromone evaporates, the iteration-best tour deposits more, and values are clamped. In this run, the trails then converge on a single tour.">
+</p>
+
+<p align="center"><sub>Rendered by <a href="scripts/animate_aco.py"><code>scripts/animate_aco.py</code></a>, a NumPy re-implementation of the update rules used by the OpenMP and MPI builds, not output of the C++ programs. Details under <a href="#animation">Animation</a>.</sub></p>
+
 ## Contents
 
 - [Background](#background)
@@ -66,6 +72,8 @@ Q / L_{\text{best}} & \text{if } (i,j) \text{ is on the iteration-best tour} \\
 
 where *L*<sub>best</sub> is the length of the iteration-best tour and *Q* is a constant that the reports describe as an estimate of the optimal tour length.
 
+The animation at the top of this page plays one iteration of this update in slow motion.
+
 ### Why it parallelizes
 
 Within one iteration the ants don't interact. Every ant reads the same pheromone matrix and builds its tour independently. Tour construction takes almost all of the run time, so it can be split across threads and processes. Only the pheromone update between iterations needs coordination.
@@ -119,10 +127,11 @@ The data sent per iteration drops from O(n²) to O(n).
 │   ├── run_MPI_maple.sh      # MPI build on eil51 (Maple cluster)
 │   ├── run_threaded.sh       # OpenMP build on eil51
 │   ├── plot_graph.py         # plot a saved tour and print its length
+│   ├── animate_aco.py        # render the README animation (NumPy re-implementation)
 │   └── clean_optimal.py      # convert a TSPLIB optimal tour into the format used here
 ├── datasets/                 # TSPLIB instances (.tsp) and their known optimal lengths (solutions)
 ├── outputs/                  # saved coordinates and tours for eil51 and a280
-├── output_images/            # plots of those tours
+├── output_images/            # plots of those tours, and the README animation
 └── results/runtimes.txt      # raw MPI timings in ms (CMSC 502 runs)
 ```
 
@@ -134,7 +143,7 @@ Requirements:
 
 - **GCC with OpenMP.** The sources include `<bits/stdc++.h>`, which is specific to GCC.
 - **An MPI implementation that provides `mpicxx` and `mpirun`**, such as Open MPI.
-- **Python 3 with matplotlib**, only needed for plotting.
+- **Python 3 with matplotlib** (which brings NumPy and Pillow), only needed for plotting and for rebuilding the animation.
 
 ```bash
 make                  # builds ACO_TSP_Serial, ACO_TSP_Threaded and ACO_TSP_MPI
@@ -221,6 +230,30 @@ To add an optimal tour:
 
 1. Paste the 1-indexed city ids from TSPLIB's `<name>.opt.tour` into `outputs/<name>/path_optimal.txt`, comma-separated or one per line, without the trailing `-1` / `EOF`.
 2. Run `python3 scripts/clean_optimal.py` **once**. It rewrites the file in place with 0-indexed ids and closes the loop. A second run would shift the ids again.
+
+### Animation
+
+The animation at the top of this page is rendered by [`scripts/animate_aco.py`](scripts/animate_aco.py), not by the C++ programs. The script re-implements the update rules of the OpenMP and MPI builds in NumPy:
+
+- every ant starts at city 0 and picks its next city with the probability rule above
+- only the iteration-best ant deposits Q/L, in both directions
+- the closing edge back to city 0 is never reinforced
+- every value is clamped to [τ<sub>min</sub>, τ<sub>max</sub>]
+
+It runs eil51 for 2000 iterations with 256 ants, α = 1, β = 3.5, ρ = 0.1, τ<sub>min</sub> = 0.1, τ<sub>max</sub> = 2 and Q = 430, the OpenMP eil51 example under [Running](#running). The eil51 scripts in `scripts/` pass Q = 2580 and 2587 instead.
+
+To rebuild it (about 25 seconds):
+
+```bash
+python3 scripts/animate_aco.py
+```
+
+The script prints the run's key numbers and the GIF's size and SHA-1. If a caption in the animation would be false for the run (for example, if the final pheromone trail isn't exactly the best tour), it stops with an error and leaves the committed GIF untouched.
+
+- **Seed 9 was chosen** because its pheromone settles onto a single trail, and that trail follows exactly its best tour. Both are rare with these settings: in most runs, the C++ ones included, the iteration-best tour is still changing at iteration 2000. `python3 scripts/animate_aco.py --seed 0 --find-seed` reports seeds 0 to 8 failing this check before it renders seed 9.
+- **The trail stays open at the start city** because the closing edge is never reinforced. The white tour line closes it.
+- **The counter numbers iterations from 1 to 2000.** The snapshot table under [Solution quality](#solution-quality) uses the C++ programs' 0-based iteration numbers.
+- **Lengths are exact Euclidean distances**, the same metric as the 429.98 quoted for TSPLIB's optimal tour. The animation's final tour can therefore come out slightly shorter than that without beating TSPLIB's optimum of 426 (see [Solution quality](#solution-quality)). The script also prints the tour's TSPLIB-rounded length.
 
 ## Results
 

@@ -5,6 +5,7 @@
 # Binary files
 *.png  binary
 *.jpg  binary
+*.gif  binary
 *.pdf  binary
 *.pptx binary
 *.zip  binary
