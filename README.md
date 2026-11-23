@@ -6,7 +6,7 @@ C++ implementations of the **Max-Min Ant System (MMAS)**, an Ant Colony Optimiza
 - **OpenMP**, where the ants of each iteration build their tours on parallel threads
 - **Hybrid MPI + OpenMP**, which follows the communication-reduced scheme of Gu Weidong et al. [3]. Processes never build or send an n × n distance or pheromone matrix. Each iteration they exchange only the best tour, which is n integers.
 
-This was a research project for CMSC 603 and CMSC 502 at Virginia Commonwealth University (Fall 2023), benchmarked on the university's Huff and Maple clusters with the TSPLIB instances eil51 and a280.
+The programs were implemented and tested on Virginia Commonwealth University's Maple and Huff clusters, and benchmarked on Huff with the TSPLIB instances eil51 and a280.
 
 <p align="center">
   <img src="output_images/mmas_eil51.gif" width="800" alt="Animated replay of a Max-Min Ant System run on the 51-city TSPLIB instance eil51. A dense web of pheromone thins into a few trails. One iteration plays in slow motion: 256 ants walk their tours, pheromone evaporates, the iteration-best tour deposits more, and values are clamped. In this run, the trails then converge on a single tour.">
@@ -20,6 +20,7 @@ This was a research project for CMSC 603 and CMSC 502 at Virginia Commonwealth U
 - [Implementations](#implementations)
 - [Repository layout](#repository-layout)
 - [Building](#building)
+- [Datasets](#datasets)
 - [Running](#running)
 - [Plotting tours](#plotting-tours)
 - [Results](#results)
@@ -70,7 +71,7 @@ Q / L_{\text{best}} & \text{if } (i,j) \text{ is on the iteration-best tour} \\
 \end{cases}
 ```
 
-where *L*<sub>best</sub> is the length of the iteration-best tour and *Q* is a constant that the reports describe as an estimate of the optimal tour length.
+where *L*<sub>best</sub> is the length of the iteration-best tour and *Q* is a constant meant to approximate the optimal tour length.
 
 The animation at the top of this page plays one iteration of this update in slow motion.
 
@@ -129,13 +130,10 @@ The data sent per iteration drops from O(n²) to O(n).
 │   ├── plot_graph.py         # plot a saved tour and print its length
 │   ├── animate_aco.py        # render the README animation (NumPy re-implementation)
 │   └── clean_optimal.py      # convert a TSPLIB optimal tour into the format used here
-├── datasets/                 # TSPLIB instances (.tsp) and their known optimal lengths (solutions)
+├── datasets/                 # TSPLIB instances, downloaded separately (see Datasets)
 ├── outputs/                  # saved coordinates and tours for eil51 and a280
-├── output_images/            # plots of those tours, and the README animation
-└── results/runtimes.txt      # raw MPI timings in ms (CMSC 502 runs)
+└── output_images/            # plots of those tours, and the README animation
 ```
-
-`datasets/` holds TSPLIB instances from 51 to 18,512 cities. `datasets/solutions` lists TSPLIB's known optimal tour lengths [4]. Only eil51 and a280 were benchmarked.
 
 ## Building
 
@@ -153,6 +151,25 @@ make clean
 
 Tested with GCC 11.4 and Open MPI 4.1.2 on Ubuntu 22.04.
 
+## Datasets
+
+The programs read TSPLIB instances [4], which are freely available from the [TSPLIB 95 site](https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/) at Heidelberg University. They are not included in this repository.
+
+- [TSP data](https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/tspindex.html) links most of the symmetric instances as gzipped `.tsp` files, plus `.opt.tour` files where an optimal tour is published. A few, eil51 among them, aren't linked there, but they are in the page's `ALL_tsp.tar.gz` archive, and the direct download below works for them too.
+- [Optimal solutions for symmetric TSPs](https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/TSP-BEST.html) lists the known optimal tour lengths.
+
+To download the two instances benchmarked here into `datasets/`, which git ignores:
+
+```bash
+mkdir -p datasets
+for name in eil51 a280; do
+  curl -fsSL -o "datasets/$name.tsp.gz" "https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/$name.tsp.gz" &&
+    gunzip -f "datasets/$name.tsp.gz"
+done
+```
+
+The results below were computed on these two instances, and the city coordinates saved in `outputs/` match them exactly. Any other instance with `EUC_2D` coordinates is fetched the same way.
+
 ## Running
 
 All three programs take the same nine arguments:
@@ -161,9 +178,9 @@ All three programs take the same nine arguments:
 ./ACO_TSP_Serial <tsp_file> <n_ants> <iterations> <alpha> <beta> <rho> <tau_max> <tau_min> <q>
 ```
 
-| # | Argument | Meaning | Used in the reports |
+| # | Argument | Meaning | Used in the experiments |
 |---|---|---|---|
-| 1 | `tsp_file` | TSPLIB file with `EUC_2D` coordinates | `datasets/eil51.tsp`, `datasets/a280.tsp` |
+| 1 | `tsp_file` | TSPLIB file with `EUC_2D` coordinates (see [Datasets](#datasets)) | `datasets/eil51.tsp`, `datasets/a280.tsp` |
 | 2 | `n_ants` | Ants per iteration (per process for the MPI build) | see [Results](#parallel-performance) |
 | 3 | `iterations` | Number of iterations | 2000 |
 | 4 | `alpha` | Pheromone exponent α | 1 |
@@ -171,24 +188,24 @@ All three programs take the same nine arguments:
 | 6 | `rho` | Evaporation rate ρ | 0.1 |
 | 7 | `tau_max` | Upper pheromone bound, also the starting value | 2 |
 | 8 | `tau_min` | Lower pheromone bound | 0.1 |
-| 9 | `q` | Deposit constant Q | see `scripts/` |
+| 9 | `q` | Deposit constant Q | not recorded |
 
 Examples:
 
 ```bash
 # Serial, eil51
-./ACO_TSP_Serial datasets/eil51.tsp 100 2000 1 3.5 0.1 2 0.1 430
+./ACO_TSP_Serial datasets/eil51.tsp 256 2000 1 3.5 0.1 2 0.1 430
 
 # OpenMP, eil51, 8 threads
 OMP_NUM_THREADS=8 ./ACO_TSP_Threaded datasets/eil51.tsp 256 2000 1 3.5 0.1 2 0.1 430
 
-# MPI + OpenMP, a280, 4 processes with 25 ants each
-mpirun -np 4 ./ACO_TSP_MPI datasets/a280.tsp 25 2000 1 5.5 0.1 2 0.1 2590
+# MPI + OpenMP, a280, 4 processes with 64 ants each (256 in total)
+mpirun -np 4 ./ACO_TSP_MPI datasets/a280.tsp 64 2000 1 5.5 0.1 2 0.1 2590
 ```
 
 ### Scripts
 
-The scripts in `scripts/` hold the exact settings used for the experiments. They use paths relative to the current directory, so run them from the repository root, for example `sbatch scripts/run.sh` or `bash scripts/run_threaded.sh`.
+The scripts in `scripts/` are example run scripts. Their ant counts and CPU requests differ from the timed runs under [Results](#parallel-performance). They use paths relative to the current directory, so run them from the repository root, for example `sbatch scripts/run.sh` or `bash scripts/run_threaded.sh`.
 
 | Script | What it runs |
 |---|---|
@@ -228,7 +245,7 @@ The script asks for the dataset name (for example `eil51`) and which tour to sho
 
 To add an optimal tour:
 
-1. Paste the 1-indexed city ids from TSPLIB's `<name>.opt.tour` into `outputs/<name>/path_optimal.txt`, comma-separated or one per line, without the trailing `-1` / `EOF`.
+1. Paste the 1-indexed city ids from TSPLIB's `<name>.opt.tour` (see [Datasets](#datasets)) into `outputs/<name>/path_optimal.txt`, comma-separated or one per line, without the trailing `-1` / `EOF`.
 2. Run `python3 scripts/clean_optimal.py` **once**. It rewrites the file in place with 0-indexed ids and closes the loop. A second run would shift the ids again.
 
 ### Animation
@@ -242,7 +259,7 @@ The animation at the top of this page is rendered by [`scripts/animate_aco.py`](
 
 It runs eil51 for 2000 iterations with 256 ants, α = 1, β = 3.5, ρ = 0.1, τ<sub>min</sub> = 0.1, τ<sub>max</sub> = 2 and Q = 430, the OpenMP eil51 example under [Running](#running). The eil51 scripts in `scripts/` pass Q = 2580 and 2587 instead.
 
-To rebuild it (about 25 seconds):
+To rebuild it (about 25 seconds), download eil51 as described under [Datasets](#datasets), then run:
 
 ```bash
 python3 scripts/animate_aco.py
@@ -261,10 +278,10 @@ The script prints the run's key numbers and the GIF's size and SHA-1. If a capti
 
 | | eil51 | a280 |
 |---|---|---|
-| TSPLIB optimum (edges rounded to integers) | 426 | 2579 |
+| [TSPLIB optimum](https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/TSP-BEST.html) (edges rounded to integers) | 426 | 2579 |
 | The same optimal tour, exact distances | 429.98 | 2586.77 |
-| Best tour found, exact distances | **428.98** | **2930.17** (CMSC 502), 2960.55 (CMSC 603) |
-| Gap to the optimum | +0.23% under TSPLIB rounding (427 vs. 426) | +13.3% (exact distances) |
+| Best tour found, exact distances | **428.98** | **2960.55** |
+| Gap to the optimum | +0.23% under TSPLIB rounding (427 vs. 426) | +14.4% (exact distances) |
 
 **Why the eil51 tour looks shorter than the optimum.** TSPLIB's `EUC_2D` metric rounds every edge to the nearest integer, and the published optima are optimal *for that rounded metric*. These programs measure exact distances instead. In the saved eil51 runs, the colony reached TSPLIB's optimal tour by iteration 1000 (exact length 429.98). The best tour found, 428.98, is a different tour: shorter under exact distances, but longer under TSPLIB's rounding (427 vs. 426). So the result doesn't beat the known optimum. The two numbers measure slightly different objectives.
 
@@ -281,7 +298,7 @@ The saved tours in `outputs/` show how the search converges. Lengths are exact d
 
 † The same tour as TSPLIB's optimal tour.
 
-The saved a280 tour (3190.26) is from an earlier run, not the best one reported (2930.17).
+The saved a280 tour (3190.26) comes from a different run than the best result above (2960.55).
 
 **eil51**
 
@@ -297,36 +314,21 @@ The saved a280 tour (3190.26) is from an earlier run, not the best one reported 
 
 ### Parallel performance
 
-Both course reports timed the MPI + OpenMP build on Huff with 1, 2, 4 and 8 processes, and report the median of 3 runs. Every run used α = 1, ρ = 0.1, τ<sub>max</sub> = 2, τ<sub>min</sub> = 0.1 and 2000 iterations, with β = 3.5 for eil51 and 5.5 for a280.
-
-**CMSC 603 runs.** These used 256 ants in total, divided evenly across the processes, and each process was given m / p CPUs.
+The MPI + OpenMP build was timed on Huff with 1, 2, 4 and 8 processes; each time is the median of 3 runs. Each timed run used 256 ants in total: with *p* processes, each process ran 256 / *p* ants on 256 / *p* CPUs (one per ant), so every configuration used 256 CPUs in total. The other settings were α = 1, ρ = 0.1, τ<sub>max</sub> = 2, τ<sub>min</sub> = 0.1 and 2000 iterations, with β = 3.5 for eil51 and 5.5 for a280.
 
 | Processes | eil51 time (s) | eil51 speedup | a280 time (s) | a280 speedup |
 |---:|---:|---:|---:|---:|
 | 1 | 123.02 | 1.00 | 168.70 | 1.00 |
-| 2 | 55.14 | 2.23 | 92.29 | 1.82 |
+| 2 | 55.14 | 2.23 | 92.29 | 1.83 |
 | 4 | 59.40 | 2.07 | 63.65 | 2.65 |
-| 8 | 37.56 | 3.27 | 56.84 | 2.96 |
+| 8 | 37.56 | 3.28 | 56.84 | 2.97 |
 
-**CMSC 502 runs.** These used about 100 ants split across the processes. The per-process counts in the table come from `results/runtimes.txt`; the report's parameter table lists m = 256 for a280.
-
-| Processes | Ants per process | eil51 time (s) | eil51 speedup | a280 time (s) | a280 speedup |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 100 | 178.47 | 1.00 | 5240.94 | 1.00 |
-| 2 | 50 | 48.54 | 3.67 | 1976.55 | 2.65 |
-| 4 | 25 | 30.05 | 5.94 | 152.54 | 34.36 |
-| 8 | 13 | 28.30 | 6.30 | 139.54 | 37.56 |
-
-Most of the CMSC 502 speedups exceed the number of processes, for example 34× on 4 processes for a280. The cause wasn't investigated, so treat those numbers with caution.
-
-`results/runtimes.txt` holds the raw timings. Two of its entries differ from the report's table: eil51 at 2 processes (48.84 s) and a280 at 4 processes (132.78 s).
-
-In both sets, splitting the colony across processes cut the run time substantially. Neither report compared against the traditional matrix-broadcast scheme, so these numbers don't isolate how much the reduced communication contributes.
+With the same 256 CPUs in every configuration, splitting the colony across more processes cut the run time by about 3× at 8 processes. These runs weren't compared against the traditional matrix-broadcast scheme, so they don't isolate how much the reduced communication contributes.
 
 ## Known limitations
 
 - **Random numbers.** All randomness comes from `rand()` seeded with `srand(time(0))`. MPI ranks that start in the same second therefore share a seed, and all OpenMP threads in a process share one generator.
-- **Tour construction is O(n³) per ant.** Visited cities are found by scanning the ant's partial tour. Together with two n × n pheromone matrices per process, this makes the large instances in `datasets/` (d15112, d18512, usa13509) impractical without changes.
+- **Tour construction is O(n³) per ant.** Visited cities are found by scanning the ant's partial tour. Together with two n × n pheromone matrices per process, this makes large TSPLIB instances such as d15112, d18512 and usa13509 impractical without changes.
 - **Pheromone deposit differs between builds.** The serial build reinforces only the direction an edge was travelled. The OpenMP and MPI builds reinforce both directions. None of them reinforces the closing edge back to the start city.
 
 ## Future work
@@ -338,4 +340,4 @@ Because a single iteration's ants are independent, the number that can run at on
 1. A. Colorni, M. Dorigo and V. Maniezzo, "Distributed Optimization by Ant Colonies," *Proceedings of the First European Conference on Artificial Life*, pp. 134–142, 1991.
 2. T. Stützle and H. H. Hoos, "MAX–MIN Ant System," *Future Generation Computer Systems*, vol. 16, no. 8, pp. 889–914, 2000. [doi:10.1016/S0167-739X(00)00043-1](https://doi.org/10.1016/S0167-739X(00)00043-1)
 3. G. Weidong, F. Jinqiao, W. Yazhou, Z. Hongjun and H. Jidong, "Parallel Performance of an Ant Colony Optimization Algorithm for TSP," *2015 8th International Conference on Intelligent Computation Technology and Automation (ICICTA)*, pp. 625–629, 2015. [doi:10.1109/ICICTA.2015.159](https://doi.org/10.1109/ICICTA.2015.159)
-4. G. Reinelt, "TSPLIB — A Traveling Salesman Problem Library," *ORSA Journal on Computing*, vol. 3, no. 4, pp. 376–384, 1991.
+4. G. Reinelt, "TSPLIB — A Traveling Salesman Problem Library," *ORSA Journal on Computing*, vol. 3, no. 4, pp. 376–384, 1991. Data: [comopt.ifi.uni-heidelberg.de/software/TSPLIB95](https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/)

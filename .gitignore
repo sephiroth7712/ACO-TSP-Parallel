@@ -9,7 +9,10 @@
 log_*.txt
 slurm-*.out
 
-# Course reports, slides and submission bundle (summarized in README.md)
+# TSPLIB instances, downloaded separately (see "Datasets" in README.md)
+/datasets/
+
+# Documents, slides and archives kept out of the repository
 *.pdf
 *.pptx
 *.zip

@@ -26,7 +26,9 @@ machine. The script prints the run's key numbers and the GIF's size and SHA-1.
     python3 scripts/animate_aco.py --cache /tmp/run.npz --frames /tmp/frames
     python3 scripts/animate_aco.py --seed 0 --find-seed
 
-Needs NumPy, matplotlib and Pillow only (no ffmpeg). Run it from any directory.
+Needs NumPy, matplotlib and Pillow only (no ffmpeg). Run it from any directory. It reads
+datasets/eil51.tsp, which is not in the repository; download it from TSPLIB first (see
+"Datasets" in README.md).
 """
 import argparse
 import hashlib
@@ -574,6 +576,10 @@ def main():
                          "then render the first seed that passes")
     args = ap.parse_args()
     t0 = time.time()
+    if not TSP.exists() or TSP.stat().st_size == 0:            # the dataset is not in the repository
+        fail(f"{TSP} is missing or empty; download it from TSPLIB first (see Datasets in README.md):\n"
+             f"  mkdir -p \"{TSP.parent}\" && curl -fsSL -o \"{TSP}.gz\" "
+             f"https://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/tsp/eil51.tsp.gz && gunzip -f \"{TSP}.gz\"")
     xy = load_tsp(TSP)
     seed = args.seed
     while True:

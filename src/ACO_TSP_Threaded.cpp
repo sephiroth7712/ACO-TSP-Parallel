@@ -224,6 +224,7 @@ void read_file(string file_name)
     if (!file.is_open())
     {
         cerr << "Error opening file: " << file_name << endl;
+        exit(1);
     }
     string line;
     bool is_coords = false;
