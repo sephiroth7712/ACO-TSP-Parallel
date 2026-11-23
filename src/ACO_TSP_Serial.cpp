@@ -247,13 +247,14 @@ void read_file(string file_name)
         {
             break;
         }
+        // TSPLIB files write this header both as "DIMENSION : 280" and as
+        // "DIMENSION: 280", so turn ':' into a space before tokenizing.
+        replace(line.begin(), line.end(), ':', ' ');
         istringstream iss(line);
         string keyword;
         iss >> keyword;
         if (keyword == "DIMENSION")
         {
-            string temp;
-            iss >> temp;
             iss >> N;
             cities = new struct city[N];
         }
