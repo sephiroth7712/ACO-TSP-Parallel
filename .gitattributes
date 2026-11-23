@@ -1,0 +1,10 @@
+# Store text files with LF line endings. The TSPLIB reader matches the
+# "EOF" line exactly, so CRLF datasets would not parse.
+* text=auto eol=lf
+
+# Binary files
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.pptx binary
+*.zip  binary

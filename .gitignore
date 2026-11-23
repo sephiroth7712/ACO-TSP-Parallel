@@ -1,0 +1,28 @@
+# Build outputs (the Makefile writes binaries to the repo root)
+/ACO_TSP_Serial
+/ACO_TSP_Threaded
+/ACO_TSP_MPI
+*.o
+
+# Run logs from Slurm and the scripts in scripts/
+*.log
+log_*.txt
+slurm-*.out
+
+# Course reports, slides and submission bundle (summarized in README.md)
+*.pdf
+*.pptx
+*.zip
+
+# Generated / tooling
+repomix-output.txt
+__pycache__/
+*.pyc
+
+# Editors and OS metadata
+.vscode/
+.idea/
+*:Zone.Identifier
+Thumbs.db
+desktop.ini
+.DS_Store
